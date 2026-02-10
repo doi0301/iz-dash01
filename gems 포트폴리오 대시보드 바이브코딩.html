@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>지식재산 대시보드</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body { background: #f6f7fb; }
+      .card h6 { color: #6c757d; font-weight: 600; }
+      .stat-value { font-size: 1.75rem; font-weight: 700; }
+      .table thead th { background: #f1f3f5; }
+    </style>
+  </head>
+  <body>
+    <!-- Top bar -->
+    <nav class="navbar navbar-expand-lg bg-white border-bottom">
+      <div class="container-fluid">
+        <span class="navbar-brand fw-bold">지식재산 대시보드</span>
+      </div>
+    </nav>
+
+    <main class="container my-4">
+      <!-- Summary cards -->
+      <div class="row g-3">
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h6>총 보유 자산</h6>
+              <div id="total-assets" class="stat-value">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h6>진행중</h6>
+              <div id="pending" class="stat-value">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h6>등록완료</h6>
+              <div id="registered" class="stat-value">-</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h6>월간 비용</h6>
+              <div id="monthly-cost" class="stat-value">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="row g-3 mt-1">
+        <div class="col-12 col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="mb-3">워크플로우 현황</h6>
+              <canvas id="workflowChart" height="220"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="mb-3">국가별 분포</h6>
+              <canvas id="countriesChart" height="220"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deadlines -->
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="m-0">마감 일정</h6>
+            <span class="text-muted small" id="deadline-count"></span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th style="min-width: 110px;">ID</th>
+                  <th style="min-width: 90px;">유형</th>
+                  <th>출원번호</th>
+                  <th style="min-width: 240px;">제목</th>
+                  <th>마감일</th>
+                  <th>D-Day</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="deadlines-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Data + Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+    <script defer>
+      // 데이터
+      const dashboardData = {
+        "summary": {
+          "total_assets": 184,
+          "pending": 42,
+          "registered": 132,
+          "monthly_cost": 12450000
+        },
+        "deadlines": [
+          {
+            "id": "DL-001",
+            "type": "OA",
+            "ref_no": "10-2023-0123456",
+            "title": "AI 기반 데이터 분석 장치 및 방법",
+            "due_date": "2026-02-28",
+            "d_day": 18,
+            "status": "In Progress"
+          },
+          {
+            "id": "DL-002",
+            "type": "연차료",
+            "ref_no": "10-2020-0098765",
+            "title": "블록체인 활용 보안 시스템",
+            "due_date": "2026-03-15",
+            "d_day": 33,
+            "status": "Waiting"
+          }
+        ],
+        "charts": {
+          "workflow": [
+            { "stage": "아이디어", "count": 12 },
+            { "stage": "출원진행", "count": 25 },
+            { "stage": "심사중", "count": 15 },
+            { "stage": "등록완료", "count": 132 }
+          ],
+          "countries": [
+            { "country": "KR", "count": 120 },
+            { "country": "US", "count": 35 },
+            { "country": "EP", "count": 15 },
+            { "country": "CN", "count": 14 }
+          ]
+        }
+      };
+
+      const formatCurrencyKR = (v) =>
+        new Intl.NumberFormat("ko-KR", { style: "currency", currency: "KRW", maximumFractionDigits: 0 }).format(v);
+      const formatDDay = (n) => (n >= 0 ? `D-${n}` : `D+${Math.abs(n)}`);
+      const statusBadge = (status) => {
+        const map = {
+          "In Progress": "primary",
+          "Waiting": "secondary",
+          "Done": "success",
+          "Overdue": "danger"
+        };
+        return map[status] || "secondary";
+      };
+
+      window.addEventListener("DOMContentLoaded", () => {
+        // Summary
+        document.getElementById("total-assets").textContent = dashboardData.summary.total_assets;
+        document.getElementById("pending").textContent = dashboardData.summary.pending;
+        document.getElementById("registered").textContent = dashboardData.summary.registered;
+        document.getElementById("monthly-cost").textContent = formatCurrencyKR(dashboardData.summary.monthly_cost);
+
+        // Deadlines
+        const tbody = document.getElementById("deadlines-body");
+        document.getElementById("deadline-count").textContent = `${dashboardData.deadlines.length}건`;
+        tbody.innerHTML = dashboardData.deadlines.map(d => `
+          <tr>
+            <td class="text-muted">${d.id}</td>
+            <td><span class="badge text-bg-light border">${d.type}</span></td>
+            <td class="text-nowrap">${d.ref_no}</td>
+            <td class="text-truncate" style="max-width: 420px;" title="${d.title}">${d.title}</td>
+            <td class="text-nowrap">${d.due_date}</td>
+            <td><span class="badge rounded-pill text-bg-${d.d_day < 0 ? 'danger' : (d.d_day <= 7 ? 'warning' : 'success')}">${formatDDay(d.d_day)}</span></td>
+            <td><span class="badge text-bg-${statusBadge(d.status)}">${d.status}</span></td>
+          </tr>
+        `).join("");
+
+        // Charts
+        const wfLabels = dashboardData.charts.workflow.map(w => w.stage);
+        const wfData = dashboardData.charts.workflow.map(w => w.count);
+        new Chart(document.getElementById("workflowChart"), {
+          type: "bar",
+          data: {
+            labels: wfLabels,
+            datasets: [{
+              label: "건수",
+              data: wfData,
+              backgroundColor: ["#6c8ef5","#5bc0de","#f0ad4e","#5cb85c"]
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: { beginAtZero: true, ticks: { precision: 0 } }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+
+        const cLabels = dashboardData.charts.countries.map(c => c.country);
+        const cData = dashboardData.charts.countries.map(c => c.count);
+        new Chart(document.getElementById("countriesChart"), {
+          type: "doughnut",
+          data: {
+            labels: cLabels,
+            datasets: [{
+              data: cData,
+              backgroundColor: ["#4e79a7","#f28e2b","#e15759","#76b7b2"]
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: "bottom" }
+            },
+            cutout: "65%"
+          }
+        });
+      });
+    </script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      defer
+    ></script>
+  </body>
+</html>
